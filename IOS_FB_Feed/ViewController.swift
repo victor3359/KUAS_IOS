@@ -34,7 +34,7 @@ class ShareButton: UIButton
 }
 
 
-class FeedController: UICollectionViewController , UICollectionViewDelegateFlowLayout, FBSDKLoginButtonDelegate{
+class CollectionViewController: UICollectionViewController , UICollectionViewDelegateFlowLayout, FBSDKLoginButtonDelegate{
     
     var posts = [Posts]()
     
@@ -81,7 +81,7 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
         
         collectionView?.alwaysBounceVertical = true
         
-        collectionView?.register(FeedCell.self, forCellWithReuseIdentifier: cellId)
+        collectionView?.register(CollectionViewCell.self, forCellWithReuseIdentifier: cellId)
         
         //viewDidLoad End
     }
@@ -133,7 +133,9 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
                         self.posts.append(datapost)
                     }
                 }
-                self.collectionView?.reloadData()
+                DispatchQueue.main.async {
+                     self.collectionView?.reloadData()
+                }
                 
             }catch let JsonError{
                 print(JsonError)
@@ -209,10 +211,12 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
     }
     
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let feedcell =  collectionView.dequeueReusableCell(withReuseIdentifier: cellId, for: indexPath) as! FeedCell
+        let collectionviewcell =  collectionView.dequeueReusableCell(withReuseIdentifier: cellId, for: indexPath) as! CollectionViewCell
         
-        feedcell.post = posts[indexPath.item]
-        return feedcell
+        collectionviewcell.post = posts[indexPath.item]
+        collectionviewcell.CollectionViewController = self
+        
+        return collectionviewcell
     }
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
@@ -247,10 +251,81 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
  
     }
     
+    let zoomImageView = UIImageView()
+    let blackBackGroundView = UIView()
+    let navBarCoverView = UIView()
+    var statusImageView = UIImageView()
+    
+    func ImageAnimate(statusImageView: UIImageView){
+        self.statusImageView = statusImageView
+        
+         if (statusImageView.superview?.convert(statusImageView.frame, to: nil)) != nil{
+            statusImageView.alpha = 0
+            
+            blackBackGroundView.frame = self.view.frame
+            blackBackGroundView.backgroundColor = UIColor.black
+            blackBackGroundView.alpha = 0
+            view.addSubview(blackBackGroundView)
+            
+            navBarCoverView.frame = CGRect(x: 0, y: 0, width: 1000, height: 20+44)
+            navBarCoverView.backgroundColor = UIColor.black
+            navBarCoverView.alpha = 0
+            
+            if let keyWindow = UIApplication.shared.keyWindow{
+                keyWindow.addSubview(navBarCoverView)
+            }
+            
+            //zoomImageView.backgroundColor = UIColor.red
+            zoomImageView.frame = statusImageView.frame
+            zoomImageView.isUserInteractionEnabled = true
+            zoomImageView.image = statusImageView.image
+            zoomImageView.clipsToBounds = true
+            zoomImageView.contentMode = .scaleAspectFit
+            view.addSubview(zoomImageView)
+        
+            zoomImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(CollectionViewController.Zoomout)))
+            
+            UIView.animate(withDuration: 0.75, delay: 0.1, usingSpringWithDamping: 1, initialSpringVelocity: 0.5, options: .curveEaseOut, animations: {
+                //let height = (self.view.frame.width / startingFrame.width) * startingFrame.height
+                //let Y = self.view.frame.height / 2 - height / 2
+                self.zoomImageView.frame = CGRect(x: 0, y: 0, width: self.view.frame.width, height: self.view.frame.height)
+                
+                self.blackBackGroundView.alpha = 1
+                self.navBarCoverView.alpha = 1
+            }, completion: nil)
+        }
+    }
+    
+    func Zoomout(){
+        if let startingFrame = statusImageView.superview?.convert(statusImageView.frame, to: nil){
+                UIView.animate(withDuration: 0.75, animations: {
+                    
+                })
+            UIView.animate(withDuration: 0.75, animations: {
+                self.zoomImageView.frame = startingFrame
+                
+                self.blackBackGroundView.alpha = 0
+                self.navBarCoverView.alpha = 0
+            }, completion: { (didComplete) in
+                self.zoomImageView.removeFromSuperview()
+                self.blackBackGroundView.removeFromSuperview()
+                self.navBarCoverView.removeFromSuperview()
+                self.statusImageView.alpha = 1
+            })
+        }
+    }
+    
+    
     //class FeedView End
 }
 
-    class FeedCell: UICollectionViewCell{
+class CollectionViewCell: UICollectionViewCell{
+    
+    var CollectionViewController: CollectionViewController?
+        func Animate()
+        {
+            CollectionViewController?.ImageAnimate(statusImageView: statusImageView)
+        }
         
         
         var post: Posts? {
@@ -286,16 +361,19 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
                     nameLabel.attributedText = attributedText
                     }
                 }
+                
                 //PostText
                 if let statusText = post?.statusText{
                     statusTextView.text = statusText
 
                 }
+                
                 //ProfilePicture
                 if let profileImageName = post?.profileImageName{
                     profileImageView.image = UIImage(named: profileImageName)
                     
                 }
+                
                 //PostPicture
                 if let statusImageName = post?.statusImageName{
                     if let url = NSURL(string: statusImageName){
@@ -304,6 +382,7 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
                         }
                     }
                 }
+                
                 //Count Of Likes, Comments, Shares
                 if let numOfLikes = post?.numOflikes {
                     likesLabel.text = "\(numOfLikes)個讚"
@@ -323,7 +402,7 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
                 let shareURL = post?.shareURL
                 shareButton.URL = URL(string: shareURL!)
                 //shareButton.URL = shareURL
-                shareButton.addTarget(nil , action: #selector(FeedController.shareAction(sender:)), for: .touchUpInside)
+                shareButton.addTarget(nil , action: #selector(CollectionViewController?.shareAction(sender:)), for: .touchUpInside)
                 
             }
         }
@@ -371,8 +450,9 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
         let statusImageView: UIImageView = {
             let imageView = UIImageView()
             imageView.image = UIImage(named: "TAT Taiwan")
-            imageView.contentMode = .scaleAspectFill
+            imageView.contentMode = .scaleAspectFit
             imageView.layer.masksToBounds = true
+            imageView.isUserInteractionEnabled = true
             return imageView
         }()
         
@@ -410,6 +490,7 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
         
 //宣告元件尾端
         
+
         func setupViews(){
             backgroundColor = UIColor.white
             
@@ -422,7 +503,7 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
             addSubview(sharesLabel)
             addSubview(dividerLineView)
             addSubview(shareButton)
-            //addSubview(likeButton)
+            statusImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(CollectionViewCell.Animate)))
             
             //AddConStraints
             addConstraintsWithFormat(format: "H:|-4-[v0]-4-|", views: statusTextView)
@@ -430,7 +511,6 @@ class FeedController: UICollectionViewController , UICollectionViewDelegateFlowL
             addConstraintsWithFormat(format: "H:|-12-[v0][v1]-12-|", views: likesLabel,sharesLabel)
             addConstraintsWithFormat(format: "H:|-12-[v0]-12-|", views: dividerLineView)
             addConstraintsWithFormat(format: "H:|-8-[v0(44)]-8-[v1]-8-[v2(24)]-18-|", views: profileImageView,nameLabel,shareButton)
-            //addConstraintsWithFormat(format: "V:|-12-[v0]", views: likeButton)
             addConstraintsWithFormat(format: "V:|-12-[v0]", views: nameLabel)
             addConstraintsWithFormat(format: "V:|-18-[v0(24)]", views: shareButton)
             addConstraintsWithFormat(format: "V:|-8-[v0(44)]-4-[v1]-4-[v2(200)]-8-[v3(24)]-8-[v4(0.4)]|", views: profileImageView,statusTextView,statusImageView,likesLabel,dividerLineView)
